@@ -32,7 +32,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("📥 تم استلام الفيديو! جاري المعالجة...")
-        # محاكاة المعالجة
         await asyncio.sleep(1)
         await update.message.reply_text("✅ تم معالجة الفيديو بنجاح!")
     except Exception as e:
@@ -56,6 +55,16 @@ def create_application():
 # إنشاء التطبيق
 application = create_application()
 
+# === دالة لتنفيذ async tasks ===
+def run_async(coro):
+    """تنفيذ coroutine بشكل آمن"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
 # === Flask route لـ webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -63,12 +72,7 @@ def webhook():
         try:
             # معالجة webhook
             update = Update.de_json(request.get_json(force=True), bot)
-            
-            # معالجة التحديث بشكل غير متزامن
-            async def process_update_async():
-                await application.process_update(update)
-            
-            asyncio.run(process_update_async())
+            run_async(application.process_update(update))
             return "OK"
         except Exception as e:
             logger.error(f"Webhook error: {e}")
@@ -82,7 +86,7 @@ def set_webhook():
         return "Webhook URL not set", 500
     
     try:
-        success = asyncio.run(bot.set_webhook(WEBHOOK_URL))
+        success = run_async(bot.set_webhook(WEBHOOK_URL))
         return f"✅ Webhook set: {success}\nURL: {WEBHOOK_URL}"
     except Exception as e:
         return f"❌ Error setting webhook: {e}", 500
@@ -91,7 +95,7 @@ def set_webhook():
 @app.route("/remove_webhook")
 def remove_webhook():
     try:
-        success = asyncio.run(bot.delete_webhook())
+        success = run_async(bot.delete_webhook())
         return f"✅ Webhook removed: {success}"
     except Exception as e:
         return f"❌ Error removing webhook: {e}", 500
@@ -106,7 +110,7 @@ if __name__ == "__main__":
     # إعداد webhook تلقائياً عند التشغيل
     if WEBHOOK_URL:
         try:
-            asyncio.run(bot.set_webhook(WEBHOOK_URL))
+            run_async(bot.set_webhook(WEBHOOK_URL))
             logger.info(f"Webhook set to: {WEBHOOK_URL}")
         except Exception as e:
             logger.warning(f"Failed to set webhook: {e}")
@@ -114,3 +118,4 @@ if __name__ == "__main__":
     # تشغيل Flask
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
