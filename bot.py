@@ -20,7 +20,6 @@ app = Flask(__name__)
 
 # إنشاء كائنات البوت
 bot = Bot(token=API_TOKEN)
-application = Application.builder().token(API_TOKEN).build()
 
 # الحصول على Render URL
 RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_URL', '')
@@ -40,9 +39,22 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error handling video: {e}")
         await update.message.reply_text("❌ عذراً، حدث خطأ أثناء المعالجة.")
 
-# إضافة handlers
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.VIDEO, handle_video))
+# === إنشاء وتهيئة التطبيق ===
+def create_application():
+    """إنشاء وتهيئة تطبيق تيليجرام"""
+    application = Application.builder().token(API_TOKEN).build()
+    
+    # إضافة handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.VIDEO, handle_video))
+    
+    # تهيئة التطبيق
+    application.initialize()
+    
+    return application
+
+# إنشاء التطبيق
+application = create_application()
 
 # === Flask route لـ webhook ===
 @app.route("/webhook", methods=["POST"])
@@ -51,7 +63,12 @@ def webhook():
         try:
             # معالجة webhook
             update = Update.de_json(request.get_json(force=True), bot)
-            asyncio.run(application.process_update(update))
+            
+            # معالجة التحديث بشكل غير متزامن
+            async def process_update_async():
+                await application.process_update(update)
+            
+            asyncio.run(process_update_async())
             return "OK"
         except Exception as e:
             logger.error(f"Webhook error: {e}")
@@ -70,6 +87,15 @@ def set_webhook():
     except Exception as e:
         return f"❌ Error setting webhook: {e}", 500
 
+# === إلغاء webhook ===
+@app.route("/remove_webhook")
+def remove_webhook():
+    try:
+        success = asyncio.run(bot.delete_webhook())
+        return f"✅ Webhook removed: {success}"
+    except Exception as e:
+        return f"❌ Error removing webhook: {e}", 500
+
 # === صفحة رئيسية ===
 @app.route("/")
 def home():
@@ -77,9 +103,6 @@ def home():
 
 # === تشغيل التطبيق ===
 if __name__ == "__main__":
-    # بدء البوت
-    application.initialize()
-    
     # إعداد webhook تلقائياً عند التشغيل
     if WEBHOOK_URL:
         try:
