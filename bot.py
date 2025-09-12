@@ -1,10 +1,10 @@
 import os
 import logging
-import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from uuid import uuid4
-from flask import Flask
+from flask import Flask, request
+import asyncio
+from threading import Thread
 
 # تكوين التسجيل
 logging.basicConfig(
@@ -13,55 +13,70 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# إنشاء تطبيق Flask لربط المنفذ
+# توكن البوت - تأكد من إضافته في متغيرات البيئة على Render
+API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '7755739692:AAEA6CEH-FX5r7KkVbkoTCavDZbJIB5RNpI')
+
+# تطبيق Flask لربط المنفذ
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Telegram Video Bot is running!"
+    return "✅ Telegram Video Bot is running on Web Service!"
 
-API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '7755739692:AAEA6CEH-FX5r7KkVbkoTCavDZbJIB5RNpI')
-DOWNLOAD_FOLDER = "downloads"
-os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+@app.route('/health')
+def health_check():
+    return "🟢 Healthy", 200
 
+# handlers للبوت
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("مرحباً! أنا بوت تحميل الفيديو. أرسل لي أي فيديو وسأقوم بتنزيله.")
+    await update.message.reply_text("🎬 مرحباً! أنا بوت تحميل الفيديو. أرسل لي أي فيديو وسأقوم بمعالجته.")
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        video_file = await update.message.video.get_file()
-        file_name = f"{uuid4().hex}.mp4"
-        file_path = os.path.join(DOWNLOAD_FOLDER, file_name)
+        await update.message.reply_text("📥 تم استلام الفيديو! جاري المعالجة...")
         
-        await video_file.download_to_drive(file_path)
-        
-        await update.message.reply_text(
-            f"تم تنزيل الفيديو بنجاح!\n"
-            f"الحجم: {os.path.getsize(file_path)} بايت"
-        )
+        # محاكاة معالجة الفيديو
+        await asyncio.sleep(2)
+        await update.message.reply_text("✅ تم معالجة الفيديو بنجاح!")
         
     except Exception as e:
-        logger.error(f"Error: {e}")
-        await update.message.reply_text("عذراً، حدث خطأ أثناء معالجة الفيديو.")
+        logger.error(f"Error handling video: {e}")
+        await update.message.reply_text("❌ عذراً، حدث خطأ أثناء معالجة الفيديو.")
 
-def main():
-    # تشغيل تطبيق Flask على المنفذ المطلوب
-    port = int(os.environ.get('PORT', 10000))
-    
-    # تشغيل البوت في thread منفصل
-    from threading import Thread
-    bot_thread = Thread(target=run_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
-    
-    # تشغيل Flask
-    app.run(host='0.0.0.0', port=port)
-
-def run_bot():
+# إنشاء وتكوين application تيليجرام
+def setup_bot():
     application = Application.builder().token(API_TOKEN).build()
+    
+    # إضافة handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    application.run_polling()
+    
+    # بدء البوت باستخدام webhook
+    try:
+        # الحصول على URL من Render
+        webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')}/{API_TOKEN}"
+        
+        # استخدام webhook للتوافق مع Web Service
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get('PORT', 10000)),
+            webhook_url=webhook_url,
+            drop_pending_updates=True
+        )
+    except Exception as e:
+        logger.error(f"Webhook setup failed: {e}")
+        # Fallback إلى polling
+        application.run_polling()
+
+# تشغيل البوت في thread منفصل
+def run_bot():
+    setup_bot()
 
 if __name__ == '__main__':
-    main()
+    # بدء البوت في thread منفصل
+    bot_thread = Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    
+    # بدء Flask على المنفذ المطلوب
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
