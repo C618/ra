@@ -30,3 +30,26 @@ def main():
 
 if __name__ == '__main__':
     main()
+# === Flask route لـ webhook ===
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), bot)
+        asyncio.run(application.update_queue.put(update))
+        return "OK"
+    return "Hello"
+
+# === إعداد webhook على Telegram ===
+@app.route("/set_webhook")
+def set_webhook():
+    s = bot.set_webhook(WEBHOOK_URL)
+    return f"Webhook set: {s}"
+
+# === صفحة رئيسية ===
+@app.route("/")
+def home():
+    return "✅ Bot is running on Render!"
+
+# === تشغيل Flask ===
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
