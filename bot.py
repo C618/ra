@@ -48,10 +48,11 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f.write(chunk)
             
             # إرسال الفيديو للمستخدم
-            await update.message.reply_video(
-                video=open(file_path, 'rb'),
-                caption="تم تحميل الفيديو بنجاح!"
-            )
+            with open(file_path, 'rb') as video_file:
+                await update.message.reply_video(
+                    video=video_file,
+                    caption="تم تحميل الفيديو بنجاح!"
+                )
             
             # تنظيف الملف المؤقت
             os.remove(file_path)
@@ -83,14 +84,11 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"يمكنك الآن مشاركته مع الآخرين."
         )
         
-        # (اختياري) حذف الملف بعد التخزين إذا كنت تريد توفير المساحة
-        # os.remove(file_path)
-        
     except Exception as e:
         logger.error(f"Error downloading video: {e}")
         await update.message.reply_text("عذراً، حدث خطأ أثناء معالجة الفيديو.")
 
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """معالج الأخطاء"""
     logger.error(f"حدث خطأ: {context.error}")
 
