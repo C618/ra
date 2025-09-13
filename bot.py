@@ -15,7 +15,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("📥 تم استلام الفيديو! جاري المعالجة...")
-        # كود معالجة الفيديو هنا
         await update.message.reply_text("✅ تم معالجة الفيديو بنجاح!")
     except Exception as e:
         logger.error(f"Error: {e}")
@@ -31,3 +30,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
