@@ -1,32 +1,33 @@
 import os
 import logging
-from telegram import Bot
-from flask import Flask
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
+# التهيئة
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '7755739692:AAEA6CEH-FX5r7KkVbkoTCavDZbJIB5RNpI')
-app = Flask(__name__)
-bot = Bot(token=API_TOKEN)
+API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
-@app.route("/")
-def home():
-    return "✅ Bot is running!"
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🎬 مرحباً! أنا بوت تحميل الفيديو. أرسل لي أي فيديو.")
 
-@app.route("/set_webhook")
-def set_webhook():
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')}/webhook"
-        success = bot.set_webhook(webhook_url)
-        return f"✅ Webhook set!<br>URL: {webhook_url}<br>Success: {success}"
+        await update.message.reply_text("📥 تم استلام الفيديو! جاري المعالجة...")
+        # كود معالجة الفيديو هنا
+        await update.message.reply_text("✅ تم معالجة الفيديو بنجاح!")
     except Exception as e:
-        return f"❌ Error: {e}"
+        logger.error(f"Error: {e}")
+        await update.message.reply_text("❌ حدث خطأ أثناء المعالجة")
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    return "OK", 200
+def main():
+    application = Application.builder().token(API_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.VIDEO, handle_video))
+    
+    logger.info("🚀 البوت يعمل الآن...")
+    application.run_polling()
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__ == '__main__':
+    main()
