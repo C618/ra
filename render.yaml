@@ -7,4 +7,5 @@ services:
     startCommand: python bot.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        value: 7755739692:AAEA6CEH-FX5r7KkVbkoTCavDZbJIB5RNpI
+
+        value: 8402125692:AAHndM_lQg6xozZ4WWdu0udgM_BjBmvkV0U
